@@ -4,6 +4,7 @@ import 'package:hertzmobile/config/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:hertzmobile/providers/auth_provider.dart';
 import 'package:hertzmobile/providers/switches_provider.dart';
+import 'package:hertzmobile/screens/voice_recorder_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -52,6 +53,105 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildDrawer(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primaryColor, AppColors.primaryDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 60.w,
+                  height: 60.w,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      (authProvider.user?.name ?? 'U')[0].toUpperCase(),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                Text(
+                  authProvider.user?.name ?? 'User',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  authProvider.user?.email ?? '',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: Icon(Icons.mic, color: AppColors.primaryColor),
+            title: const Text('Voice Command'),
+            subtitle: const Text('Record and send voice commands'),
+            onTap: () {
+              Navigator.of(context).pop(); // Close drawer
+              showDialog(
+                context: context,
+                builder: (_) => const VoiceRecorderDialog(),
+              );
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: Icon(Icons.settings, color: AppColors.textSecondary),
+            title: const Text('Settings'),
+            onTap: () {
+              Navigator.of(context).pop();
+              // TODO: Navigate to settings
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.help, color: AppColors.textSecondary),
+            title: const Text('Help & Feedback'),
+            onTap: () {
+              Navigator.of(context).pop();
+              // TODO: Show help
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: Icon(Icons.logout, color: AppColors.errorColor),
+            title: Text(
+              'Logout',
+              style: TextStyle(color: AppColors.errorColor),
+            ),
+            onTap: () {
+              Navigator.of(context).pop();
+              _showLogoutDialog(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ScreenUtil.init(context);
@@ -75,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      drawer: _buildDrawer(context),
       body: Consumer2<AuthProvider, SwitchesProvider>(
         builder: (context, authProvider, switchesProvider, _) {
           return SingleChildScrollView(

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:hertzmobile/models/auth_models.dart';
 import 'package:hertzmobile/models/switch_models.dart' as switch_models;
+import 'package:hertzmobile/models/voice_models.dart';
 
 class ApiService {
   static const String baseUrl = 'http://192.168.50.92:8001/api';
@@ -112,6 +113,57 @@ class ApiService {
       );
     } catch (e) {
       return switch_models.SwitchUpdateResponse(
+        success: false,
+        message: 'An unexpected error occurred',
+        statusCode: 0,
+      );
+    }
+  }
+
+  /// Submit voice recording
+  Future<VoiceSubmitResponse> submitVoiceRecording(String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          filePath,
+          filename: 'voice_recording.mp3',
+          contentType: DioMediaType('audio', 'mpeg'),
+        ),
+      });
+
+      final response = await _dio.post('/voice/submit', data: formData);
+      return VoiceSubmitResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      return VoiceSubmitResponse(
+        success: false,
+        message:
+            e.response?.data['message'] ?? 'Failed to submit voice recording',
+        statusCode: e.response?.statusCode ?? 0,
+        errors: e.response?.data['errors'] as Map<String, dynamic>?,
+      );
+    } catch (e) {
+      return VoiceSubmitResponse(
+        success: false,
+        message: 'An unexpected error occurred',
+        statusCode: 0,
+      );
+    }
+  }
+
+  /// Retrieve voice recording status and result
+  Future<VoiceRetrieveResponse> getVoiceRecording(int id) async {
+    try {
+      final response = await _dio.get('/voice/$id');
+      return VoiceRetrieveResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      return VoiceRetrieveResponse(
+        success: false,
+        message:
+            e.response?.data['message'] ?? 'Failed to retrieve voice recording',
+        statusCode: e.response?.statusCode ?? 0,
+      );
+    } catch (e) {
+      return VoiceRetrieveResponse(
         success: false,
         message: 'An unexpected error occurred',
         statusCode: 0,
