@@ -126,6 +126,10 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
 
     final voiceProvider = context.read<VoiceProvider>();
 
+    // Close dialog first
+    if (!mounted) return;
+    Navigator.of(context).pop();
+
     // Show processing dialog
     if (!mounted) return;
     showDialog(
@@ -151,16 +155,14 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
     if (!mounted) return;
 
     if (success) {
-      // Wait for processing to complete
-      await Future.delayed(const Duration(seconds: 2));
-
+      // Provider automatically polls for results with 2-second interval
       // Listen for processing completion
       bool processingComplete = false;
       int attempts = 0;
-      const maxAttempts = 60; // 5 minutes max wait (60 * 5 seconds)
+      const maxAttempts = 150; // 5 minutes max wait (150 * 2 seconds)
 
       while (!processingComplete && attempts < maxAttempts) {
-        await Future.delayed(const Duration(seconds: 5));
+        await Future.delayed(const Duration(seconds: 2));
         attempts++;
 
         if (voiceProvider.currentVoice?.status == 'processed') {
@@ -169,10 +171,6 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
           final result = voiceProvider.currentVoice?.result;
 
           if (result == 'Identified') {
-            // Parse switch numbers from the result
-            // For now, assume result contains switch info (1-5)
-            // You may need to adjust based on actual API response format
-
             Navigator.of(context).pop(); // Close processing dialog
 
             if (mounted) {

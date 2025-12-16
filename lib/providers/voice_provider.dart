@@ -48,10 +48,10 @@ class VoiceProvider extends ChangeNotifier {
     }
   }
 
-  /// Start polling voice recording status
+  /// Start polling voice recording status with 2-second interval
   void _startPolling(int voiceId) {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       final response = await apiService.getVoiceRecording(voiceId);
 
       if (response.success && response.data != null) {
@@ -64,12 +64,13 @@ class VoiceProvider extends ChangeNotifier {
           _isProcessing = false;
 
           // Handle result
-          if (response.data!.result == 'Identified') {
-            _resultMessage = 'Voice identified successfully';
-            notifyListeners();
-          } else if (response.data!.result == 'Unidentified') {
+          if (response.data!.result == 'Unidentified') {
             _errorMessage = 'Voice not identified';
             _isProcessing = false;
+            notifyListeners();
+          } else {
+            _resultMessage = 'Voice identified successfully';
+            parseIdentifiedSwitches(response.data!.result);
             notifyListeners();
           }
         } else {
