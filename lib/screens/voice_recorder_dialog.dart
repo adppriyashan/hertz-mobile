@@ -130,7 +130,27 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
 
     // Set callbacks
     voiceProvider.onSwitchesNeedRefresh = () {
-      switchesProvider.fetchAllSwitches();
+      print('TESTING - onSwitchesNeedRefresh callback triggered');
+      switchesProvider
+          .fetchAllSwitches()
+          .then((_) {
+            print('TESTING - Switches fetched successfully');
+          })
+          .catchError((e) {
+            print('TESTING - Error fetching switches: $e');
+          });
+    };
+
+    voiceProvider.onApplySwitch = (switchId, newStatus) {
+      print('TESTING - onApplySwitch: id=$switchId, status=$newStatus');
+      switchesProvider
+          .updateSwitchStatus(switchId, newStatus)
+          .then((success) {
+            print('TESTING - Switch updated: $success');
+          })
+          .catchError((e) {
+            print('TESTING - Error updating switch: $e');
+          });
     };
 
     voiceProvider.onError = (error) {
@@ -447,8 +467,8 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
   }
 
   bool _isRelayState(String result) {
-    // Pattern: digit-digit (relay-state), e.g., "4-1", "1-0"
-    final regExp = RegExp(r'^\d+-[01]$');
+    // Pattern: digit-digit (relay-state), also match just digits like "1", "2", "3", "4", "5"
+    final regExp = RegExp(r'^\d+(-[01])?$');
     return regExp.hasMatch(result);
   }
 }

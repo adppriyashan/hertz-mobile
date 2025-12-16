@@ -8,6 +8,7 @@ class VoiceProvider extends ChangeNotifier {
   Function? onSwitchesNeedRefresh;
   Function(String error)? onError;
   Function(String result)? onSuccess;
+  Function(int switchId, bool newStatus)? onApplySwitch;
 
   VoiceData? _currentVoice;
   bool _isRecording = false;
@@ -86,8 +87,23 @@ class VoiceProvider extends ChangeNotifier {
             // Relay state detected (e.g., "4-1") - success case
             _resultMessage = 'Voice identified successfully';
             parseIdentifiedSwitches(result);
-            // Trigger switches refresh
-            onSwitchesNeedRefresh?.call();
+            print(
+              'TESTING - Triggering switches refresh for relay state: $result',
+            );
+
+            // Parse relay state and apply switch update
+            final parsedRelay = _parseRelayState(result);
+            if (parsedRelay != null) {
+              print(
+                'TESTING - Parsed relay: id=${parsedRelay['id']}, state=${parsedRelay['state']}',
+              );
+              onApplySwitch?.call(parsedRelay['id'], parsedRelay['state']);
+            }
+
+            // Trigger switches refresh asynchronously
+            Future.microtask(() {
+              onSwitchesNeedRefresh?.call();
+            });
             onSuccess?.call(result);
             notifyListeners();
           } else if (result == 'Unidentified') {
@@ -118,9 +134,27 @@ class VoiceProvider extends ChangeNotifier {
 
   /// Check if result is a relay state format (e.g., "4-1", "1-0", etc.)
   bool _isRelayState(String result) {
-    // Pattern: digit-digit (relay-state)
-    final regExp = RegExp(r'^\d+-[01]$');
+    // Pattern: digit-digit (relay-state), also match just digits like "1", "2", "3", "4", "5"
+    final regExp = RegExp(r'^\d+(-[01])?$');
     return regExp.hasMatch(result);
+  }
+
+  /// Parse relay state from result (e.g., "4-1" => {id: 4, state: true})
+  Map<String, dynamic>? _parseRelayState(String result) {
+    // Format: "4-1" => relay 4, state on (1=true, 0=false)
+    // Or just "4" => relay 4
+    final parts = result.split('-');
+    if (parts.isEmpty) return null;
+
+    final switchId = int.tryParse(parts[0]);
+    if (switchId == null) return null;
+
+    bool state = true; // Default to on
+    if (parts.length > 1) {
+      state = parts[1] == '1'; // '1' = on, '0' = off
+    }
+
+    return {'id': switchId, 'state': state};
   }
 
   /// Parse identified switches from result
