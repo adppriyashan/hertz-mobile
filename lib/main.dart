@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hertzmobile/config/theme.dart';
 import 'package:hertzmobile/providers/auth_provider.dart';
+import 'package:hertzmobile/providers/switches_provider.dart';
 import 'package:hertzmobile/services/api_service.dart';
 import 'package:hertzmobile/services/token_service.dart';
 import 'package:hertzmobile/screens/splash_screen.dart';
@@ -33,6 +34,10 @@ class MyApp extends StatelessWidget {
             apiService: context.read<ApiService>(),
             tokenService: context.read<TokenService>(),
           ),
+        ),
+        ChangeNotifierProvider<SwitchesProvider>(
+          create: (context) =>
+              SwitchesProvider(apiService: context.read<ApiService>()),
         ),
       ],
       child: ScreenUtilInit(
