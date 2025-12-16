@@ -64,12 +64,12 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
       }
 
       final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final fileName = 'voice_${DateTime.now().millisecondsSinceEpoch}.wav';
       final path = '${directory.path}/$fileName';
 
       await _recorder.startRecorder(
         toFile: path,
-        codec: Codec.aacADTS,
+        codec: Codec.pcm16WAV,
         bitRate: 128000,
         sampleRate: 44100,
       );
