@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:hertzmobile/providers/voice_provider.dart';
+import 'package:hertzmobile/providers/switches_provider.dart';
 
 class VoiceRecorderDialog extends StatefulWidget {
   const VoiceRecorderDialog({super.key});
@@ -125,10 +126,63 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
     if (_recordingPath == null) return;
 
     final voiceProvider = context.read<VoiceProvider>();
+    final switchesProvider = context.read<SwitchesProvider>();
 
-    // Close dialog first
-    if (!mounted) return;
-    Navigator.of(context).pop();
+    // Set callbacks
+    voiceProvider.onSwitchesNeedRefresh = () {
+      switchesProvider.fetchAllSwitches();
+    };
+
+    voiceProvider.onError = (error) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close processing dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Error'),
+            content: Text(error),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  voiceProvider.clearVoiceData();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    };
+
+    voiceProvider.onSuccess = (result) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close processing dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Voice Identified'),
+            content: Text(
+              _isRelayState(result)
+                  ? 'Voice command recognized: $result. Switches have been updated.'
+                  : 'Voice has been identified successfully. Associated switches will be updated.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop(); // Close recorder dialog
+                  voiceProvider.clearVoiceData();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    };
 
     // Show processing dialog
     if (!mounted) return;
@@ -154,98 +208,7 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
 
     if (!mounted) return;
 
-    if (success) {
-      // Provider automatically polls for results with 2-second interval
-      // Listen for processing completion
-      bool processingComplete = false;
-      int attempts = 0;
-      const maxAttempts = 150; // 5 minutes max wait (150 * 2 seconds)
-
-      while (!processingComplete && attempts < maxAttempts) {
-        await Future.delayed(const Duration(seconds: 2));
-        attempts++;
-
-        if (voiceProvider.currentVoice?.status == 'processed') {
-          processingComplete = true;
-
-          final result = voiceProvider.currentVoice?.result;
-
-          if (result == 'Identified') {
-            Navigator.of(context).pop(); // Close processing dialog
-
-            if (mounted) {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Voice Identified'),
-                  content: const Text(
-                    'Voice has been identified successfully. '
-                    'Associated switches will be updated.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).pop(); // Close recorder dialog
-                        voiceProvider.clearVoiceData();
-                      },
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
-            }
-          } else if (result == 'Unidentified') {
-            Navigator.of(context).pop(); // Close processing dialog
-
-            if (mounted) {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Voice Not Identified'),
-                  content: const Text(
-                    'The voice command was not recognized. Please try again.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        voiceProvider.clearVoiceData();
-                      },
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
-            }
-          }
-        }
-      }
-
-      if (!processingComplete) {
-        Navigator.of(context).pop(); // Close processing dialog
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Processing Timeout'),
-              content: const Text(
-                'Voice processing took too long. Please try again.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    voiceProvider.clearVoiceData();
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        }
-      }
-    } else {
+    if (!success) {
       Navigator.of(context).pop(); // Close processing dialog
       if (mounted) {
         showDialog(
@@ -265,6 +228,7 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
         );
       }
     }
+    // Success case is handled by callbacks above
   }
 
   @override
@@ -480,5 +444,11 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  bool _isRelayState(String result) {
+    // Pattern: digit-digit (relay-state), e.g., "4-1", "1-0"
+    final regExp = RegExp(r'^\d+-[01]$');
+    return regExp.hasMatch(result);
   }
 }

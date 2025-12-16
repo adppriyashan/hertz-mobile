@@ -5,6 +5,9 @@ import 'package:hertzmobile/services/api_service.dart';
 
 class VoiceProvider extends ChangeNotifier {
   final ApiService apiService;
+  Function? onSwitchesNeedRefresh;
+  Function(String error)? onError;
+  Function(String result)? onSuccess;
 
   VoiceData? _currentVoice;
   bool _isRecording = false;
@@ -63,14 +66,40 @@ class VoiceProvider extends ChangeNotifier {
           _pollTimer = null;
           _isProcessing = false;
 
-          // Handle result
-          if (response.data!.result == 'Unidentified') {
-            _errorMessage = 'Voice not identified';
+          // Handle result - 3 types:
+          // 1. "Unauthorized" - error
+          // 2. "Invalid" - error
+          // 3. Relay state like "4-1" - success, need to refresh switches
+          final result = response.data!.result ?? '';
+
+          print('TESTING VOICE RESULT: $result');
+
+          if (result == 'Unauthorized' || result == 'Invalid') {
+            final errorMsg = result == 'Unauthorized'
+                ? 'Voice command unauthorized'
+                : 'Invalid voice command';
+            _errorMessage = errorMsg;
             _isProcessing = false;
+            onError?.call(errorMsg);
+            notifyListeners();
+          } else if (result.isNotEmpty && _isRelayState(result)) {
+            // Relay state detected (e.g., "4-1") - success case
+            _resultMessage = 'Voice identified successfully';
+            parseIdentifiedSwitches(result);
+            // Trigger switches refresh
+            onSwitchesNeedRefresh?.call();
+            onSuccess?.call(result);
+            notifyListeners();
+          } else if (result == 'Unidentified') {
+            const errorMsg = 'Voice not identified';
+            _errorMessage = errorMsg;
+            _isProcessing = false;
+            onError?.call(errorMsg);
             notifyListeners();
           } else {
             _resultMessage = 'Voice identified successfully';
-            parseIdentifiedSwitches(response.data!.result);
+            parseIdentifiedSwitches(result);
+            onSuccess?.call(result);
             notifyListeners();
           }
         } else {
@@ -81,9 +110,17 @@ class VoiceProvider extends ChangeNotifier {
         _pollTimer = null;
         _isProcessing = false;
         _errorMessage = response.message;
+        onError?.call(response.message);
         notifyListeners();
       }
     });
+  }
+
+  /// Check if result is a relay state format (e.g., "4-1", "1-0", etc.)
+  bool _isRelayState(String result) {
+    // Pattern: digit-digit (relay-state)
+    final regExp = RegExp(r'^\d+-[01]$');
+    return regExp.hasMatch(result);
   }
 
   /// Parse identified switches from result
