@@ -107,19 +107,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           ListTile(
-            leading: Icon(Icons.mic, color: AppColors.primaryColor),
-            title: const Text('Voice Command'),
-            subtitle: const Text('Record and send voice commands'),
-            onTap: () {
-              Navigator.of(context).pop(); // Close drawer
-              showDialog(
-                context: context,
-                builder: (_) => const VoiceRecorderDialog(),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
             leading: Icon(Icons.settings, color: AppColors.textSecondary),
             title: const Text('Settings'),
             onTap: () {
@@ -160,6 +147,16 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Dashboard'),
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.mic),
+          tooltip: 'Voice Command',
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (_) => const VoiceRecorderDialog(),
+            );
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
