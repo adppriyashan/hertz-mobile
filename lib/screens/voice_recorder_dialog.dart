@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hertzmobile/config/theme.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:record/record.dart';
+import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:hertzmobile/providers/voice_provider.dart';
 
@@ -15,15 +15,32 @@ class VoiceRecorderDialog extends StatefulWidget {
 }
 
 class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
-  final AudioRecorder recorder = AudioRecorder();
+  final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
   bool _isRecording = false;
   Duration _recordingDuration = Duration.zero;
   String? _recordingPath;
+  bool _recorderInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _requestMicrophonePermission();
+    _initializeRecorder();
+  }
+
+  Future<void> _initializeRecorder() async {
+    try {
+      await _recorder.openRecorder();
+      setState(() {
+        _recorderInitialized = true;
+      });
+      _requestMicrophonePermission();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error initializing recorder: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _requestMicrophonePermission() async {
@@ -39,41 +56,44 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
 
   Future<void> _startRecording() async {
     try {
-      if (await recorder.hasPermission()) {
-        final directory = await getApplicationDocumentsDirectory();
-        final fileName = 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        final path = '${directory.path}/$fileName';
-
-        await recorder.start(
-          const RecordConfig(
-            encoder: AudioEncoder.aacLc,
-            bitRate: 128000,
-            sampleRate: 44100,
-          ),
-          path: path,
+      if (!_recorderInitialized) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recorder not initialized')),
         );
-
-        setState(() {
-          _isRecording = true;
-          _recordingPath = path;
-          _recordingDuration = Duration.zero;
-        });
-
-        // Update duration every 100ms
-        Future.doWhile(() async {
-          if (_isRecording) {
-            await Future.delayed(const Duration(milliseconds: 100));
-            if (_isRecording) {
-              setState(() {
-                _recordingDuration =
-                    _recordingDuration + const Duration(milliseconds: 100);
-              });
-            }
-            return _isRecording;
-          }
-          return false;
-        });
+        return;
       }
+
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName = 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final path = '${directory.path}/$fileName';
+
+      await _recorder.startRecorder(
+        toFile: path,
+        codec: Codec.aacADTS,
+        bitRate: 128000,
+        sampleRate: 44100,
+      );
+
+      setState(() {
+        _isRecording = true;
+        _recordingPath = path;
+        _recordingDuration = Duration.zero;
+      });
+
+      // Update duration every 100ms
+      Future.doWhile(() async {
+        if (_isRecording) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (_isRecording) {
+            setState(() {
+              _recordingDuration =
+                  _recordingDuration + const Duration(milliseconds: 100);
+            });
+          }
+          return _isRecording;
+        }
+        return false;
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -85,7 +105,7 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
 
   Future<void> _stopRecording() async {
     try {
-      final path = await recorder.stop();
+      final path = await _recorder.stopRecorder();
       setState(() {
         _isRecording = false;
       });
@@ -251,7 +271,7 @@ class _VoiceRecorderDialogState extends State<VoiceRecorderDialog> {
 
   @override
   void dispose() {
-    recorder.dispose();
+    _recorder.closeRecorder();
     super.dispose();
   }
 
